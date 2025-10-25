@@ -1,6 +1,5 @@
--- 🔥 ระบบออโต้ล็อกเป้า + มองทะลุ + วิ่งไว + เมนูลากได้
--- (ใช้ได้ในเกมของคุณเองเท่านั้น)
--- by ChatGPT
+-- 🔥 Auto-Lock + Speed + ESP (ไม่ล็อกศัตรูหลังกำแพง)
+-- ใช้ได้ในเกมของคุณเองเท่านั้น
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,25 +7,23 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local speed = 16
-local locked = false
-local target = nil
 local autoLock = true
-local highlightList = {}
+local target = nil
 local maxDistance = 150
+local espEnabled = true
+local highlightList = {}
 
--- 🧱 GUI
+-- GUI
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.ResetOnSpawn = false
 
--- เมนูหลัก
 local menuFrame = Instance.new("Frame")
 menuFrame.Parent = gui
 menuFrame.Size = UDim2.new(0, 220, 0, 230)
 menuFrame.Position = UDim2.new(0.05, 0, 0.65, 0)
-menuFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-menuFrame.Active = true -- ✅ ทำให้ลากได้
+menuFrame.Active = true
 menuFrame.Draggable = true
-menuFrame.Visible = true
+menuFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 menuFrame.BorderSizePixel = 2
 menuFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
 
@@ -37,7 +34,7 @@ title.TextScaled = true
 title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 title.TextColor3 = Color3.new(1, 1, 1)
 
--- 🔘 ปุ่มเปิด/ปิดระบบ
+-- ปุ่มออโต้ล็อก
 local lockButton = Instance.new("TextButton", menuFrame)
 lockButton.Size = UDim2.new(1, -20, 0, 40)
 lockButton.Position = UDim2.new(0, 10, 0, 40)
@@ -46,7 +43,7 @@ lockButton.TextScaled = true
 lockButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
 lockButton.TextColor3 = Color3.new(1, 1, 1)
 
--- ⚡ ปรับความเร็ว
+-- ความเร็ว
 local speedLabel = Instance.new("TextLabel", menuFrame)
 speedLabel.Size = UDim2.new(1, -20, 0, 30)
 speedLabel.Position = UDim2.new(0, 10, 0, 90)
@@ -67,7 +64,7 @@ minusButton.Position = UDim2.new(0.5, 10, 0, 130)
 minusButton.Text = "-"
 minusButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 
--- 👁️ มองทะลุ (Highlight)
+-- ESP
 local espButton = Instance.new("TextButton", menuFrame)
 espButton.Size = UDim2.new(1, -20, 0, 40)
 espButton.Position = UDim2.new(0, 10, 0, 180)
@@ -76,14 +73,11 @@ espButton.TextScaled = true
 espButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
 espButton.TextColor3 = Color3.new(1, 1, 1)
 
-local espEnabled = true
-
--- 🎯 หาศัตรูใกล้สุดที่มองเห็น
-local function getClosestEnemy()
+-- ฟังก์ชันหาศัตรูที่มองเห็นได้ (ไม่ทะลุกำแพง)
+local function getClosestVisibleEnemy()
 	local char = player.Character
 	if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
 	local root = char.HumanoidRootPart
-
 	local nearest = nil
 	local nearestDist = math.huge
 
@@ -91,7 +85,8 @@ local function getClosestEnemy()
 		if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
 			local enemyRoot = plr.Character.HumanoidRootPart
 			local dist = (enemyRoot.Position - root.Position).Magnitude
-			if dist < maxDistance then
+			if dist <= maxDistance then
+				-- Raycast ตรวจสอบว่ามองเห็นได้จริง
 				local rayParams = RaycastParams.new()
 				rayParams.FilterDescendantsInstances = {char}
 				rayParams.FilterType = Enum.RaycastFilterType.Blacklist
@@ -108,7 +103,7 @@ local function getClosestEnemy()
 	return nearest
 end
 
--- 👁️ สร้าง Highlight (มองทะลุ)
+-- สร้าง Highlight
 local function createHighlight(character)
 	if highlightList[character] then return end
 	local hl = Instance.new("Highlight")
@@ -118,7 +113,7 @@ local function createHighlight(character)
 	highlightList[character] = hl
 end
 
--- 🧽 ล้าง highlight
+-- ล้าง highlight
 local function clearHighlights()
 	for char, hl in pairs(highlightList) do
 		if hl and hl.Parent then
@@ -128,18 +123,16 @@ local function clearHighlights()
 	highlightList = {}
 end
 
--- 🔄 อัปเดตทุกเฟรม
+-- อัปเดตทุกเฟรม
 RunService.RenderStepped:Connect(function()
 	local char = player.Character
 	if char and char:FindFirstChild("Humanoid") then
 		char.Humanoid.WalkSpeed = speed
 	end
 
-	-- Auto Lock ต่อเนื่อง
+	-- ออโต้ล็อกศัตรูที่มองเห็น
 	if autoLock then
-		if not target or not target.Character or not target.Character:FindFirstChild("Humanoid") or target.Character.Humanoid.Health <= 0 then
-			target = getClosestEnemy()
-		end
+		target = getClosestVisibleEnemy()
 		if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
 			camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
 		end
@@ -157,7 +150,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- 🖱️ ปุ่มควบคุม
+-- ปุ่มควบคุม
 lockButton.MouseButton1Click:Connect(function()
 	autoLock = not autoLock
 	if autoLock then
