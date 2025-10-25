@@ -1,0 +1,107 @@
+-- 🏃 เมนูปรับความเร็ว (มือถือ/PC ใช้ได้)
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- GUI หลัก
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SpeedMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+-- ปุ่มเปิดเมนู (ลอยมุมขวาบน)
+local OpenButton = Instance.new("TextButton")
+OpenButton.Name = "OpenButton"
+OpenButton.Size = UDim2.new(0, 100, 0, 40)
+OpenButton.Position = UDim2.new(1, -110, 0, 10)
+OpenButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+OpenButton.Text = "เมนู"
+OpenButton.TextColor3 = Color3.new(1, 1, 1)
+OpenButton.TextScaled = true
+OpenButton.Parent = ScreenGui
+
+-- กรอบเมนู
+local MenuFrame = Instance.new("Frame")
+MenuFrame.Name = "MenuFrame"
+MenuFrame.Size = UDim2.new(0, 250, 0, 170)
+MenuFrame.Position = UDim2.new(0.5, -125, 0.5, -85)
+MenuFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+MenuFrame.Visible = false
+MenuFrame.Parent = ScreenGui
+MenuFrame.BorderSizePixel = 2
+MenuFrame.Active = true
+MenuFrame.Draggable = true
+
+-- หัวข้อ
+local Title = Instance.new("TextLabel")
+Title.Parent = MenuFrame
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "⚡ ปรับความไว ⚡"
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextScaled = true
+
+-- ช่องกรอกความเร็ว
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Parent = MenuFrame
+SpeedBox.Size = UDim2.new(0.8, 0, 0, 40)
+SpeedBox.Position = UDim2.new(0.1, 0, 0.45, -20)
+SpeedBox.PlaceholderText = "กรอกค่าความเร็ว (เช่น 50, 100)"
+SpeedBox.BackgroundColor3 = Color3.fromRGB(255, 150, 150)
+SpeedBox.TextColor3 = Color3.new(0, 0, 0)
+SpeedBox.TextScaled = true
+
+-- ปุ่มยืนยัน
+local ConfirmButton = Instance.new("TextButton")
+ConfirmButton.Parent = MenuFrame
+ConfirmButton.Size = UDim2.new(0.4, 0, 0, 40)
+ConfirmButton.Position = UDim2.new(0.3, 0, 0.7, 0)
+ConfirmButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+ConfirmButton.Text = "ยืนยัน"
+ConfirmButton.TextColor3 = Color3.new(0, 0, 0)
+ConfirmButton.TextScaled = true
+
+-- ปุ่มปิดเมนู
+local CloseButton = Instance.new("TextButton")
+CloseButton.Parent = MenuFrame
+CloseButton.Size = UDim2.new(0.3, 0, 0, 30)
+CloseButton.Position = UDim2.new(0.65, 0, 0, 10)
+CloseButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseButton.Text = "ปิด"
+CloseButton.TextColor3 = Color3.new(1, 1, 1)
+CloseButton.TextScaled = true
+
+-- ตัวแปร
+local menuOpen = false
+local defaultSpeed = 16
+
+-- กดเปิด/ปิดเมนู
+OpenButton.MouseButton1Click:Connect(function()
+	menuOpen = not menuOpen
+	MenuFrame.Visible = menuOpen
+end)
+
+-- ปุ่ม "ยืนยัน" ปรับความเร็ว
+ConfirmButton.MouseButton1Click:Connect(function()
+	local speedValue = tonumber(SpeedBox.Text)
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		if speedValue and speedValue > 0 then
+			humanoid.WalkSpeed = speedValue
+			ConfirmButton.Text = "✅ ตั้งเป็น " .. speedValue
+			task.wait(1)
+			ConfirmButton.Text = "ยืนยัน"
+		else
+			ConfirmButton.Text = "⚠️ ใส่ตัวเลข!"
+			task.wait(1.2)
+			ConfirmButton.Text = "ยืนยัน"
+		end
+	end
+end)
+
+-- ปุ่มปิดเมนู
+CloseButton.MouseButton1Click:Connect(function()
+	menuOpen = false
+	MenuFrame.Visible = false
+end)
