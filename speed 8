@@ -6,7 +6,7 @@ local player = Players.LocalPlayer
 local highlightList = {}
 local espEnabled = true
 local mBotEnabled = false
-local mBotValue = 100 -- ค่าเริ่มต้น M Bot
+local mBotValue = 100
 
 -- ฟังก์ชันสร้าง Highlight
 local function highlightEnemy(character)
@@ -31,7 +31,7 @@ end
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.ResetOnSpawn = false
 
--- ปุ่มเปิด/ปิด UI
+-- ปุ่มเปิด/ปิด เมนู
 local toggleUIButton = Instance.new("TextButton", gui)
 toggleUIButton.Size = UDim2.new(0,50,0,50)
 toggleUIButton.Position = UDim2.new(0,10,0,10)
@@ -42,9 +42,9 @@ toggleUIButton.TextColor3 = Color3.new(1,1,1)
 toggleUIButton.BorderSizePixel = 0
 toggleUIButton.ZIndex = 10
 
--- เมนู UI เรียบง่าย
+-- เมนูหลัก
 local menuFrame = Instance.new("Frame", gui)
-menuFrame.Size = UDim2.new(0,220,0,180)
+menuFrame.Size = UDim2.new(0,220,0,200)
 menuFrame.Position = UDim2.new(0,70,0,10)
 menuFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
 menuFrame.BorderSizePixel = 1
@@ -106,7 +106,7 @@ mBotLabel.TextScaled = true
 mBotLabel.BackgroundTransparency = 1
 mBotLabel.TextColor3 = Color3.new(1,1,1)
 
--- ปุ่มปรับค่า M Bot (+ / -)
+-- ปุ่มปรับค่า M Bot (+/-)
 local increaseBtn = Instance.new("TextButton", menuFrame)
 increaseBtn.Size = UDim2.new(0.45,-5,0,30)
 increaseBtn.Position = UDim2.new(0,10,0,140)
@@ -133,7 +133,7 @@ decreaseBtn.MouseButton1Click:Connect(function()
     mBotLabel.Text = "ค่า M Bot: "..mBotValue
 end)
 
--- สลับเปิด/ปิด UI
+-- เปิด/ปิด เมนู
 local uiOpen = true
 toggleUIButton.MouseButton1Click:Connect(function()
     uiOpen = not uiOpen
@@ -141,7 +141,7 @@ toggleUIButton.MouseButton1Click:Connect(function()
     toggleUIButton.Text = uiOpen and "❌" or "✔️"
 end)
 
--- ฟังก์ชันลากเมนู (Draggable)
+-- ฟังก์ชันลากเมนู
 local dragging = false
 local dragInput, startPos, startFramePos
 
