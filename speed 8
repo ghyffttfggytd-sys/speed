@@ -10,7 +10,7 @@ local Camera = Workspace.CurrentCamera
 -- Settings
 local espEnabled = true
 local lockTargetEnabled = true
-local lockStrength = 100 -- 1-400
+local lockStrength = 100
 local highlightList = {}
 local currentTarget = nil
 
@@ -27,6 +27,7 @@ Frame.Parent = ScreenGui
 Frame.Active = true
 Frame.Draggable = true
 
+-- สร้างปุ่ม รองรับทั้ง Mouse และ Touch
 local function createButton(name, pos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 200, 0, 40)
@@ -35,7 +36,11 @@ local function createButton(name, pos, callback)
     btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
     btn.TextColor3 = Color3.new(1,1,1)
     btn.Parent = Frame
+
+    -- รองรับ MouseClick
     btn.MouseButton1Click:Connect(callback)
+    -- รองรับ TouchTap สำหรับมือถือ
+    btn.TouchTap:Connect(callback)
     return btn
 end
 
@@ -88,7 +93,7 @@ local function removeESP(player)
     end
 end
 
--- ฟังก์ชันหาเป้าหมายใกล้ศูนย์กลางหน้าจอ
+-- อัปเดตเป้าหมาย
 local function updateTarget()
     local closestDistance = math.huge
     local target = nil
@@ -107,8 +112,9 @@ local function updateTarget()
     currentTarget = target
 end
 
--- Update ESP และ Lock Target ทุกเฟรม
+-- อัปเดตทุกเฟรม
 RunService.RenderStepped:Connect(function(delta)
+    -- ESP
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             if espEnabled then
@@ -119,7 +125,7 @@ RunService.RenderStepped:Connect(function(delta)
         end
     end
 
-    -- Update target
+    -- Lock Target
     if lockTargetEnabled then
         updateTarget()
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") then
@@ -132,14 +138,14 @@ RunService.RenderStepped:Connect(function(delta)
     end
 end)
 
--- PlayerAdded Event
+-- ผู้เล่นใหม่เข้ามา
 Players.PlayerAdded:Connect(function(player)
     if espEnabled then
         createESP(player)
     end
 end)
 
--- Toggle GUI ด้วยปุ่ม P
+-- ซ่อน/โชว์ GUI ด้วยปุ่ม P
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.P then
         Frame.Visible = not Frame.Visible
