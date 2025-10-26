@@ -1,14 +1,16 @@
 -- Services
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local highlightList = {}
+local espEnabled = true
 
 -- ฟังก์ชันสร้าง Highlight
 local function highlightEnemy(character)
     if highlightList[character] then return end
     local hl = Instance.new("Highlight")
-    hl.FillColor = Color3.fromRGB(255,0,0) -- สีแดง
+    hl.FillColor = Color3.fromRGB(255,0,0)
     hl.OutlineColor = Color3.fromRGB(255,0,0)
     hl.Parent = character
     highlightList[character] = hl
@@ -27,46 +29,57 @@ end
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 gui.ResetOnSpawn = false
 
--- เมนู
+-- ปุ่มเปิด/ปิด UI ❌ / ✔️
+local toggleUIButton = Instance.new("TextButton", gui)
+toggleUIButton.Size = UDim2.new(0,50,0,50)
+toggleUIButton.Position = UDim2.new(0,10,0,10)
+toggleUIButton.Text = "❌"
+toggleUIButton.TextScaled = true
+toggleUIButton.BackgroundColor3 = Color3.fromRGB(255,50,50)
+toggleUIButton.TextColor3 = Color3.new(1,1,1)
+toggleUIButton.BorderSizePixel = 0
+toggleUIButton.ZIndex = 10
+
+-- เมนู UI
 local menuFrame = Instance.new("Frame", gui)
 menuFrame.Size = UDim2.new(0,200,0,100)
-menuFrame.Position = UDim2.new(0.05,0,0.05,0)
+menuFrame.Position = UDim2.new(0,70,0,10)
 menuFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 menuFrame.BorderSizePixel = 2
 menuFrame.BorderColor3 = Color3.fromRGB(255,0,0)
 menuFrame.ZIndex = 10
 
--- ชื่อเมนู
-local title = Instance.new("TextLabel", menuFrame)
-title.Size = UDim2.new(1,0,0,30)
-title.Position = UDim2.new(0,0,0,0)
-title.Text = "ESP: เปิด"
-title.TextScaled = true
-title.BackgroundColor3 = Color3.fromRGB(255,0,0)
-title.TextColor3 = Color3.new(1,1,1)
-title.BorderSizePixel = 0
+-- ปุ่ม ESP ภายในเมนู
+local espButton = Instance.new("TextButton", menuFrame)
+espButton.Size = UDim2.new(1,-20,0,40)
+espButton.Position = UDim2.new(0,10,0,30)
+espButton.Text = "ESP: เปิด"
+espButton.TextScaled = true
+espButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+espButton.TextColor3 = Color3.new(1,1,1)
+espButton.BorderSizePixel = 0
 
--- ปุ่มเปิด/ปิด ESP
-local toggleButton = Instance.new("TextButton", menuFrame)
-toggleButton.Size = UDim2.new(1,-20,0,40)
-toggleButton.Position = UDim2.new(0,10,0,40)
-toggleButton.Text = "เปิด/ปิด ESP"
-toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-toggleButton.TextColor3 = Color3.new(1,1,1)
-
-local espEnabled = true
-toggleButton.MouseButton1Click:Connect(function()
+espButton.MouseButton1Click:Connect(function()
     espEnabled = not espEnabled
     if espEnabled then
-        toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+        espButton.Text = "ESP: เปิด"
+        espButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
     else
-        toggleButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
-        -- ลบ Highlight ทั้งหมด
+        espButton.Text = "ESP: ปิด"
+        espButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
         for _,hl in pairs(highlightList) do
             if hl and hl.Parent then hl:Destroy() end
         end
         highlightList = {}
     end
+end)
+
+-- สลับเปิด/ปิดเมนู UI
+local uiOpen = true
+toggleUIButton.MouseButton1Click:Connect(function()
+    uiOpen = not uiOpen
+    menuFrame.Visible = uiOpen
+    toggleUIButton.Text = uiOpen and "❌" or "✔️"
 end)
 
 -- ฟังก์ชันลากเมนู (Draggable)
@@ -97,7 +110,13 @@ menuFrame.InputChanged:Connect(function(input)
     end
 end)
 
--- Update Loop ESP ทุก 1 วินาที
+RunService.RenderStepped:Connect(function()
+    if dragging and dragInput then
+        update(dragInput)
+    end
+end)
+
+-- Loop ESP ทุก 1 วินาที
 while true do
     if espEnabled then
         updateESP()
