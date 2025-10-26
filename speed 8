@@ -1,0 +1,106 @@
+-- Services
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local highlightList = {}
+
+-- ฟังก์ชันสร้าง Highlight
+local function highlightEnemy(character)
+    if highlightList[character] then return end
+    local hl = Instance.new("Highlight")
+    hl.FillColor = Color3.fromRGB(255,0,0) -- สีแดง
+    hl.OutlineColor = Color3.fromRGB(255,0,0)
+    hl.Parent = character
+    highlightList[character] = hl
+end
+
+-- ฟังก์ชันอัพเดท ESP
+local function updateESP()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            highlightEnemy(plr.Character)
+        end
+    end
+end
+
+-- GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.ResetOnSpawn = false
+
+-- เมนู
+local menuFrame = Instance.new("Frame", gui)
+menuFrame.Size = UDim2.new(0,200,0,100)
+menuFrame.Position = UDim2.new(0.05,0,0.05,0)
+menuFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+menuFrame.BorderSizePixel = 2
+menuFrame.BorderColor3 = Color3.fromRGB(255,0,0)
+menuFrame.ZIndex = 10
+
+-- ชื่อเมนู
+local title = Instance.new("TextLabel", menuFrame)
+title.Size = UDim2.new(1,0,0,30)
+title.Position = UDim2.new(0,0,0,0)
+title.Text = "ESP: เปิด"
+title.TextScaled = true
+title.BackgroundColor3 = Color3.fromRGB(255,0,0)
+title.TextColor3 = Color3.new(1,1,1)
+title.BorderSizePixel = 0
+
+-- ปุ่มเปิด/ปิด ESP
+local toggleButton = Instance.new("TextButton", menuFrame)
+toggleButton.Size = UDim2.new(1,-20,0,40)
+toggleButton.Position = UDim2.new(0,10,0,40)
+toggleButton.Text = "เปิด/ปิด ESP"
+toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+toggleButton.TextColor3 = Color3.new(1,1,1)
+
+local espEnabled = true
+toggleButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    if espEnabled then
+        toggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+    else
+        toggleButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+        -- ลบ Highlight ทั้งหมด
+        for _,hl in pairs(highlightList) do
+            if hl and hl.Parent then hl:Destroy() end
+        end
+        highlightList = {}
+    end
+end)
+
+-- ฟังก์ชันลากเมนู (Draggable)
+local dragging = false
+local dragInput, startPos, startFramePos
+
+local function update(input)
+    local delta = input.Position - startPos
+    menuFrame.Position = UDim2.new(0, startFramePos.X + delta.X, 0, startFramePos.Y + delta.Y)
+end
+
+menuFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        startPos = input.Position
+        startFramePos = Vector2.new(menuFrame.Position.X.Offset, menuFrame.Position.Y.Offset)
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+menuFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+-- Update Loop ESP ทุก 1 วินาที
+while true do
+    if espEnabled then
+        updateESP()
+    end
+    wait(1)
+end
