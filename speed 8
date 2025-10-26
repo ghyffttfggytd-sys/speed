@@ -6,6 +6,7 @@ local player = Players.LocalPlayer
 local highlightList = {}
 local espEnabled = true
 local mBotEnabled = false
+local mBotValue = 100 -- ค่าเริ่มต้น M Bot
 
 -- ฟังก์ชันสร้าง Highlight
 local function highlightEnemy(character)
@@ -43,7 +44,7 @@ toggleUIButton.ZIndex = 10
 
 -- เมนู UI เรียบง่าย
 local menuFrame = Instance.new("Frame", gui)
-menuFrame.Size = UDim2.new(0,180,0,120)
+menuFrame.Size = UDim2.new(0,220,0,180)
 menuFrame.Position = UDim2.new(0,70,0,10)
 menuFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
 menuFrame.BorderSizePixel = 1
@@ -94,6 +95,42 @@ mBotButton.MouseButton1Click:Connect(function()
         mBotButton.Text = "M Bot: ปิด"
         mBotButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
     end
+end)
+
+-- Label แสดงค่า M Bot
+local mBotLabel = Instance.new("TextLabel", menuFrame)
+mBotLabel.Size = UDim2.new(1,-20,0,30)
+mBotLabel.Position = UDim2.new(0,10,0,110)
+mBotLabel.Text = "ค่า M Bot: "..mBotValue
+mBotLabel.TextScaled = true
+mBotLabel.BackgroundTransparency = 1
+mBotLabel.TextColor3 = Color3.new(1,1,1)
+
+-- ปุ่มปรับค่า M Bot (+ / -)
+local increaseBtn = Instance.new("TextButton", menuFrame)
+increaseBtn.Size = UDim2.new(0.45,-5,0,30)
+increaseBtn.Position = UDim2.new(0,10,0,140)
+increaseBtn.Text = "+"
+increaseBtn.TextScaled = true
+increaseBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
+increaseBtn.TextColor3 = Color3.new(1,1,1)
+
+local decreaseBtn = Instance.new("TextButton", menuFrame)
+decreaseBtn.Size = UDim2.new(0.45,-5,0,30)
+decreaseBtn.Position = UDim2.new(0.5,0,0,140)
+decreaseBtn.Text = "-"
+decreaseBtn.TextScaled = true
+decreaseBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
+decreaseBtn.TextColor3 = Color3.new(1,1,1)
+
+increaseBtn.MouseButton1Click:Connect(function()
+    mBotValue = math.clamp(mBotValue + 1,1,400)
+    mBotLabel.Text = "ค่า M Bot: "..mBotValue
+end)
+
+decreaseBtn.MouseButton1Click:Connect(function()
+    mBotValue = math.clamp(mBotValue - 1,1,400)
+    mBotLabel.Text = "ค่า M Bot: "..mBotValue
 end)
 
 -- สลับเปิด/ปิด UI
