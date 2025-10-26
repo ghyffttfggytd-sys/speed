@@ -6,7 +6,6 @@ local player = Players.LocalPlayer
 local highlightList = {}
 local espEnabled = true
 local mBotEnabled = false
-local mBotValue = 100 -- ค่าเริ่มต้น
 
 -- ฟังก์ชันสร้าง Highlight
 local function highlightEnemy(character)
@@ -18,6 +17,7 @@ local function highlightEnemy(character)
     highlightList[character] = hl
 end
 
+-- ฟังก์ชันอัพเดท ESP
 local function updateESP()
     for _, plr in pairs(Players:GetPlayers()) do
         if plr ~= player and plr.Character then
@@ -34,30 +34,23 @@ gui.ResetOnSpawn = false
 local toggleUIButton = Instance.new("TextButton", gui)
 toggleUIButton.Size = UDim2.new(0,50,0,50)
 toggleUIButton.Position = UDim2.new(0,10,0,10)
-toggleUIButton.Text = "❎"
+toggleUIButton.Text = "❌"
 toggleUIButton.TextScaled = true
 toggleUIButton.BackgroundColor3 = Color3.fromRGB(255,50,50)
 toggleUIButton.TextColor3 = Color3.new(1,1,1)
 toggleUIButton.BorderSizePixel = 0
 toggleUIButton.ZIndex = 10
 
--- เมนูหลัก
+-- เมนู UI เรียบง่าย
 local menuFrame = Instance.new("Frame", gui)
-menuFrame.Size = UDim2.new(0,220,0,200)
+menuFrame.Size = UDim2.new(0,180,0,120)
 menuFrame.Position = UDim2.new(0,70,0,10)
-menuFrame.BorderSizePixel = 2
+menuFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+menuFrame.BorderSizePixel = 1
+menuFrame.BorderColor3 = Color3.fromRGB(255,0,0)
 menuFrame.ZIndex = 10
 
--- Rainbow Background
-local hue = 0
-RunService.RenderStepped:Connect(function()
-    if menuFrame.Visible then
-        hue = (hue + 1) % 360
-        menuFrame.BackgroundColor3 = Color3.fromHSV(hue/360,1,1)
-    end
-end)
-
--- ปุ่มเปิด/ปิด ESP
+-- ปุ่ม ESP
 local espButton = Instance.new("TextButton", menuFrame)
 espButton.Size = UDim2.new(1,-20,0,40)
 espButton.Position = UDim2.new(0,10,0,10)
@@ -82,7 +75,7 @@ espButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- ปุ่มเปิด/ปิด M Bot
+-- ปุ่ม M Bot
 local mBotButton = Instance.new("TextButton", menuFrame)
 mBotButton.Size = UDim2.new(1,-20,0,40)
 mBotButton.Position = UDim2.new(0,10,0,60)
@@ -103,48 +96,12 @@ mBotButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Label แสดงค่า M Bot
-local mBotLabel = Instance.new("TextLabel", menuFrame)
-mBotLabel.Size = UDim2.new(1,-20,0,30)
-mBotLabel.Position = UDim2.new(0,10,0,110)
-mBotLabel.Text = "ค่า M Bot: "..mBotValue
-mBotLabel.TextScaled = true
-mBotLabel.BackgroundTransparency = 1
-mBotLabel.TextColor3 = Color3.new(1,1,1)
-
--- ปุ่ม + / - ปรับค่า M Bot
-local increaseBtn = Instance.new("TextButton", menuFrame)
-increaseBtn.Size = UDim2.new(0.45,-5,0,30)
-increaseBtn.Position = UDim2.new(0,10,0,140)
-increaseBtn.Text = "+"
-increaseBtn.TextScaled = true
-increaseBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
-increaseBtn.TextColor3 = Color3.new(1,1,1)
-
-local decreaseBtn = Instance.new("TextButton", menuFrame)
-decreaseBtn.Size = UDim2.new(0.45,-5,0,30)
-decreaseBtn.Position = UDim2.new(0.5,0,0,140)
-decreaseBtn.Text = "-"
-decreaseBtn.TextScaled = true
-decreaseBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
-decreaseBtn.TextColor3 = Color3.new(1,1,1)
-
-increaseBtn.MouseButton1Click:Connect(function()
-    mBotValue = math.clamp(mBotValue + 1,1,400)
-    mBotLabel.Text = "ค่า M Bot: "..mBotValue
-end)
-
-decreaseBtn.MouseButton1Click:Connect(function()
-    mBotValue = math.clamp(mBotValue - 1,1,400)
-    mBotLabel.Text = "ค่า M Bot: "..mBotValue
-end)
-
 -- สลับเปิด/ปิด UI
 local uiOpen = true
 toggleUIButton.MouseButton1Click:Connect(function()
     uiOpen = not uiOpen
     menuFrame.Visible = uiOpen
-    toggleUIButton.Text = uiOpen and "❎" or "✅"
+    toggleUIButton.Text = uiOpen and "❌" or "✔️"
 end)
 
 -- ฟังก์ชันลากเมนู (Draggable)
@@ -186,6 +143,5 @@ while true do
     if espEnabled then
         updateESP()
     end
-    -- M Bot สามารถนำไปใช้ต่อสำหรับฟังก์ชันอื่นๆได้
     wait(1)
 end
