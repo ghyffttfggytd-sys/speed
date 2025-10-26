@@ -1,184 +1,117 @@
--- Services
+--// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
-local player = Players.LocalPlayer
-local highlightList = {}
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+--// Settings
 local espEnabled = true
-local mBotEnabled = false
-local mBotValue = 100
+local lockTargetEnabled = true
+local fovRadius = 150 -- ปรับขนาดวงกลม FOV
+local enemyColor = Color3.fromRGB(255,0,0)
+local friendColor = Color3.fromRGB(0,255,0)
 
--- ฟังก์ชันสร้าง Highlight
-local function highlightEnemy(character)
-    if highlightList[character] then return end
-    local hl = Instance.new("Highlight")
-    hl.FillColor = Color3.fromRGB(255,0,0)
-    hl.OutlineColor = Color3.fromRGB(255,0,0)
-    hl.Parent = character
-    highlightList[character] = hl
+--// Highlight เก็บ ESP
+local highlights = {}
+local currentTarget = nil
+
+--// ฟังก์ชันสร้าง ESP
+local function createESP(player)
+    if highlights[player] then return highlights[player] end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = player.Character
+    highlight.FillColor = (player.Team == LocalPlayer.Team and friendColor) or enemyColor
+    highlight.OutlineColor = Color3.new(1,1,1)
+    highlight.Parent = game.CoreGui
+    highlights[player] = highlight
+    return highlight
 end
 
--- ฟังก์ชันอัพเดท ESP
-local function updateESP()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            highlightEnemy(plr.Character)
-        end
+--// ฟังก์ชันลบ ESP
+local function removeESP(player)
+    if highlights[player] then
+        highlights[player]:Destroy()
+        highlights[player] = nil
     end
 end
 
--- GUI
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.ResetOnSpawn = false
+--// ฟังก์ชันหาศัตรูใกล้เคียงในวง FOV
+local function getClosestTarget()
+    local closest = nil
+    local shortestDistance = fovRadius
 
--- ปุ่มเปิด/ปิด เมนู
-local toggleUIButton = Instance.new("TextButton", gui)
-toggleUIButton.Size = UDim2.new(0,50,0,50)
-toggleUIButton.Position = UDim2.new(0,10,0,10)
-toggleUIButton.Text = "❌"
-toggleUIButton.TextScaled = true
-toggleUIButton.BackgroundColor3 = Color3.fromRGB(255,50,50)
-toggleUIButton.TextColor3 = Color3.new(1,1,1)
-toggleUIButton.BorderSizePixel = 0
-toggleUIButton.ZIndex = 10
-
--- เมนูหลัก
-local menuFrame = Instance.new("Frame", gui)
-menuFrame.Size = UDim2.new(0,220,0,200)
-menuFrame.Position = UDim2.new(0,70,0,10)
-menuFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
-menuFrame.BorderSizePixel = 1
-menuFrame.BorderColor3 = Color3.fromRGB(255,0,0)
-menuFrame.ZIndex = 10
-
--- ปุ่ม ESP
-local espButton = Instance.new("TextButton", menuFrame)
-espButton.Size = UDim2.new(1,-20,0,40)
-espButton.Position = UDim2.new(0,10,0,10)
-espButton.Text = "ESP: เปิด"
-espButton.TextScaled = true
-espButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-espButton.TextColor3 = Color3.new(1,1,1)
-espButton.BorderSizePixel = 0
-
-espButton.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    if espEnabled then
-        espButton.Text = "ESP: เปิด"
-        espButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-    else
-        espButton.Text = "ESP: ปิด"
-        espButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
-        for _,hl in pairs(highlightList) do
-            if hl and hl.Parent then hl:Destroy() end
-        end
-        highlightList = {}
-    end
-end)
-
--- ปุ่ม M Bot
-local mBotButton = Instance.new("TextButton", menuFrame)
-mBotButton.Size = UDim2.new(1,-20,0,40)
-mBotButton.Position = UDim2.new(0,10,0,60)
-mBotButton.Text = "M Bot: ปิด"
-mBotButton.TextScaled = true
-mBotButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
-mBotButton.TextColor3 = Color3.new(1,1,1)
-mBotButton.BorderSizePixel = 0
-
-mBotButton.MouseButton1Click:Connect(function()
-    mBotEnabled = not mBotEnabled
-    if mBotEnabled then
-        mBotButton.Text = "M Bot: เปิด"
-        mBotButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
-    else
-        mBotButton.Text = "M Bot: ปิด"
-        mBotButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
-    end
-end)
-
--- Label แสดงค่า M Bot
-local mBotLabel = Instance.new("TextLabel", menuFrame)
-mBotLabel.Size = UDim2.new(1,-20,0,30)
-mBotLabel.Position = UDim2.new(0,10,0,110)
-mBotLabel.Text = "ค่า M Bot: "..mBotValue
-mBotLabel.TextScaled = true
-mBotLabel.BackgroundTransparency = 1
-mBotLabel.TextColor3 = Color3.new(1,1,1)
-
--- ปุ่มปรับค่า M Bot (+/-)
-local increaseBtn = Instance.new("TextButton", menuFrame)
-increaseBtn.Size = UDim2.new(0.45,-5,0,30)
-increaseBtn.Position = UDim2.new(0,10,0,140)
-increaseBtn.Text = "+"
-increaseBtn.TextScaled = true
-increaseBtn.BackgroundColor3 = Color3.fromRGB(0,150,0)
-increaseBtn.TextColor3 = Color3.new(1,1,1)
-
-local decreaseBtn = Instance.new("TextButton", menuFrame)
-decreaseBtn.Size = UDim2.new(0.45,-5,0,30)
-decreaseBtn.Position = UDim2.new(0.5,0,0,140)
-decreaseBtn.Text = "-"
-decreaseBtn.TextScaled = true
-decreaseBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
-decreaseBtn.TextColor3 = Color3.new(1,1,1)
-
-increaseBtn.MouseButton1Click:Connect(function()
-    mBotValue = math.clamp(mBotValue + 1,1,400)
-    mBotLabel.Text = "ค่า M Bot: "..mBotValue
-end)
-
-decreaseBtn.MouseButton1Click:Connect(function()
-    mBotValue = math.clamp(mBotValue - 1,1,400)
-    mBotLabel.Text = "ค่า M Bot: "..mBotValue
-end)
-
--- เปิด/ปิด เมนู
-local uiOpen = true
-toggleUIButton.MouseButton1Click:Connect(function()
-    uiOpen = not uiOpen
-    menuFrame.Visible = uiOpen
-    toggleUIButton.Text = uiOpen and "❌" or "✔️"
-end)
-
--- ฟังก์ชันลากเมนู
-local dragging = false
-local dragInput, startPos, startFramePos
-
-local function update(input)
-    local delta = input.Position - startPos
-    menuFrame.Position = UDim2.new(0, startFramePos.X + delta.X, 0, startFramePos.Y + delta.Y)
-end
-
-menuFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        startPos = input.Position
-        startFramePos = Vector2.new(menuFrame.Position.X.Offset, menuFrame.Position.Y.Offset)
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closest = player
+                end
             end
-        end)
+        end
     end
-end)
-
-menuFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if dragging and dragInput then
-        update(dragInput)
-    end
-end)
-
--- Loop ESP ทุก 1 วินาที
-while true do
-    if espEnabled then
-        updateESP()
-    end
-    wait(1)
+    return closest
 end
+
+--// วาดวงกลม FOV
+local function drawFOV()
+    local fovCircle = Instance.new("Frame")
+    fovCircle.Size = UDim2.new(0,fovRadius*2,0,fovRadius*2)
+    fovCircle.Position = UDim2.new(0.5,-fovRadius,0.5,-fovRadius)
+    fovCircle.BackgroundTransparency = 0.8
+    fovCircle.BorderSizePixel = 2
+    fovCircle.BorderColor3 = Color3.fromRGB(0,255,0)
+    fovCircle.Parent = game.CoreGui
+end
+
+--// เรียลไทม์
+RunService.RenderStepped:Connect(function()
+    if espEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                createESP(player)
+            end
+        end
+    else
+        for player, _ in pairs(highlights) do
+            removeESP(player)
+        end
+    end
+
+    if lockTargetEnabled then
+        currentTarget = getClosestTarget()
+        -- ตัวอย่าง: แสดง print ชื่อเป้าล็อค
+        if currentTarget then
+            print("Locked Target:", currentTarget.Name)
+        end
+    end
+end)
+
+--// ปุ่ม UI บนมือถือ
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+
+local ESPButton = Instance.new("TextButton", ScreenGui)
+ESPButton.Size = UDim2.new(0,100,0,50)
+ESPButton.Position = UDim2.new(0,10,0,10)
+ESPButton.Text = "ESP ❌"
+ESPButton.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    ESPButton.Text = espEnabled and "ESP ✔️" or "ESP ❌"
+end)
+
+local LockButton = Instance.new("TextButton", ScreenGui)
+LockButton.Size = UDim2.new(0,100,0,50)
+LockButton.Position = UDim2.new(0,10,0,70)
+LockButton.Text = "Lock ❌"
+LockButton.MouseButton1Click:Connect(function()
+    lockTargetEnabled = not lockTargetEnabled
+    LockButton.Text = lockTargetEnabled and "Lock ✔️" or "Lock ❌"
+end)
+
+drawFOV()
