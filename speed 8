@@ -1,4 +1,4 @@
---// Services
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -7,133 +7,112 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
---// Settings
-local ESPEnabled = true
-local LockTargetEnabled = false
-local ESPColor = Color3.fromRGB(255,0,0)
-local UpdateRate = 1 -- อัพเดททุก 1 วินาที
+-- Settings
+local espEnabled = true
+local lockTargetEnabled = true
+local highlightList = {}
+local currentTarget = nil
 
---// GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- GUI
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.ResetOnSpawn = false
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 100)
-MainFrame.Position = UDim2.new(0, 50, 0, 50)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 120)
+Frame.Position = UDim2.new(0.1,0,0.1,0)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.BackgroundTransparency = 0.2
+Frame.Parent = ScreenGui
+Frame.Active = true
+Frame.Draggable = true -- เลื่อน GUI ได้
 
-local ESPButton = Instance.new("TextButton")
-ESPButton.Size = UDim2.new(0, 180, 0, 30)
-ESPButton.Position = UDim2.new(0, 10, 0, 10)
-ESPButton.Text = "ESP: ON"
-ESPButton.Parent = MainFrame
+-- Toggle Buttons
+local function createButton(name, pos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 180, 0, 40)
+    btn.Position = pos
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Parent = Frame
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
 
-local LockButton = Instance.new("TextButton")
-LockButton.Size = UDim2.new(0, 180, 0, 30)
-LockButton.Position = UDim2.new(0, 10, 0, 50)
-LockButton.Text = "Lock Target: OFF"
-LockButton.Parent = MainFrame
-
---// Toggle Functions
-ESPButton.MouseButton1Click:Connect(function()
-    ESPEnabled = not ESPEnabled
-    ESPButton.Text = "ESP: " .. (ESPEnabled and "ON" or "OFF")
+local espButton = createButton("ESP: ON", UDim2.new(0,10,0,10), function()
+    espEnabled = not espEnabled
+    espButton.Text = "ESP: "..(espEnabled and "ON" or "OFF")
 end)
 
-LockButton.MouseButton1Click:Connect(function()
-    LockTargetEnabled = not LockTargetEnabled
-    LockButton.Text = "Lock Target: " .. (LockTargetEnabled and "ON" or "OFF")
+local lockButton = createButton("Lock Target: ON", UDim2.new(0,10,0,60), function()
+    lockTargetEnabled = not lockTargetEnabled
+    lockButton.Text = "Lock Target: "..(lockTargetEnabled and "ON" or "OFF")
 end)
 
---// Highlight Management
-local highlights = {}
-
+-- ฟังก์ชันสร้าง Highlight
 local function createESP(player)
-    if highlights[player] then return end
-    if not player.Character then return end
+    if highlightList[player] then return end
     local highlight = Instance.new("Highlight")
-    highlight.Name = "ESPHighlight"
     highlight.Adornee = player.Character
-    highlight.FillColor = ESPColor
-    highlight.OutlineColor = ESPColor
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = Workspace
-    highlights[player] = highlight
+    highlight.FillColor = (player.Team == LocalPlayer.Team) and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
+    highlight.OutlineColor = Color3.new(1,1,1)
+    highlight.Parent = player:WaitForChild("PlayerGui")
+    highlightList[player] = highlight
 end
 
 local function removeESP(player)
-    if highlights[player] then
-        highlights[player]:Destroy()
-        highlights[player] = nil
+    if highlightList[player] then
+        highlightList[player]:Destroy()
+        highlightList[player] = nil
     end
 end
 
---// Lock Target Function
-local function getClosestTarget()
-    local closest = nil
-    local shortestDistance = math.huge
-
+-- อัปเดต ESP ทุกเฟรม
+RunService.RenderStepped:Connect(function()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local origin = Camera.CFrame.Position
-            local direction = player.Character.HumanoidRootPart.Position - origin
-            local ray = Ray.new(origin, direction)
-            local hitPart, _ = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
-            
-            if hitPart and hitPart:IsDescendantOf(player.Character) then
-                local dist = (player.Character.HumanoidRootPart.Position - origin).Magnitude
-                if dist < shortestDistance then
-                    shortestDistance = dist
-                    closest = player
-                end
+            if espEnabled then
+                createESP(player)
+            else
+                removeESP(player)
             end
         end
     end
 
-    return closest
-end
-
---// ESP Update Function
-local function updateESP()
-    for _, player in pairs(Players:GetPlayers()) do
-        if ESPEnabled and player.Character then
-            createESP(player)
-        elseif not ESPEnabled then
-            removeESP(player)
+    -- Lock Target
+    if lockTargetEnabled then
+        local closestDistance = math.huge
+        local target = nil
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                if onScreen then
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if distance < closestDistance then
+                        closestDistance = distance
+                        target = player
+                    end
+                end
+            end
+        end
+        currentTarget = target
+        -- หมุนกล้องไปที่เป้าศัตรู
+        if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, currentTarget.Character.HumanoidRootPart.Position)
         end
     end
-end
+end)
 
---// Initial ESP for existing players
-updateESP()
+-- ทำให้ GUI สามารถเปิด/ปิดด้วยปุ่ม P
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.P then
+        Frame.Visible = not Frame.Visible
+    end
+end)
 
---// Detect new players
+-- เช็คผู้เล่นใหม่เข้ามา
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        if ESPEnabled then
-            createESP(player)
-        end
-    end)
-end)
-
---// Cleanup on leave
-Players.PlayerRemoving:Connect(function(player)
-    removeESP(player)
-end)
-
---// Main Loop for ESP & Lock Target
-while true do
-    updateESP()
-
-    if LockTargetEnabled then
-        local target = getClosestTarget()
-        if target then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
-        end
+    if espEnabled then
+        createESP(player)
     end
-
-    wait(UpdateRate)
-end
+end)
