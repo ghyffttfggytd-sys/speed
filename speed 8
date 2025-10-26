@@ -10,6 +10,7 @@ local Camera = Workspace.CurrentCamera
 -- Settings
 local espEnabled = true
 local lockTargetEnabled = true
+local lockStrength = 100 -- 1-400
 local highlightList = {}
 local currentTarget = nil
 
@@ -18,18 +19,17 @@ local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"
 ScreenGui.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 120)
+Frame.Size = UDim2.new(0, 220, 0, 180)
 Frame.Position = UDim2.new(0.1,0,0.1,0)
 Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 Frame.BackgroundTransparency = 0.2
 Frame.Parent = ScreenGui
 Frame.Active = true
-Frame.Draggable = true -- เลื่อน GUI ได้
+Frame.Draggable = true
 
--- Toggle Buttons
 local function createButton(name, pos, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 180, 0, 40)
+    btn.Size = UDim2.new(0, 200, 0, 40)
     btn.Position = pos
     btn.Text = name
     btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
@@ -39,19 +39,40 @@ local function createButton(name, pos, callback)
     return btn
 end
 
+-- ปุ่มเปิด/ปิด ESP
 local espButton = createButton("ESP: ON", UDim2.new(0,10,0,10), function()
     espEnabled = not espEnabled
     espButton.Text = "ESP: "..(espEnabled and "ON" or "OFF")
 end)
 
+-- ปุ่มเปิด/ปิด Lock Target
 local lockButton = createButton("Lock Target: ON", UDim2.new(0,10,0,60), function()
     lockTargetEnabled = not lockTargetEnabled
     lockButton.Text = "Lock Target: "..(lockTargetEnabled and "ON" or "OFF")
 end)
 
+-- TextBox ปรับ Lock Strength
+local strengthBox = Instance.new("TextBox")
+strengthBox.Size = UDim2.new(0, 200, 0, 40)
+strengthBox.Position = UDim2.new(0, 10, 0, 110)
+strengthBox.PlaceholderText = "Lock Strength: "..lockStrength
+strengthBox.Text = ""
+strengthBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+strengthBox.TextColor3 = Color3.new(1,1,1)
+strengthBox.Parent = Frame
+strengthBox.FocusLost:Connect(function()
+    local val = tonumber(strengthBox.Text)
+    if val and val >=1 and val <=400 then
+        lockStrength = val
+        strengthBox.PlaceholderText = "Lock Strength: "..lockStrength
+    end
+    strengthBox.Text = ""
+end)
+
 -- ฟังก์ชันสร้าง Highlight
 local function createESP(player)
     if highlightList[player] then return end
+    if not player.Character then return end
     local highlight = Instance.new("Highlight")
     highlight.Adornee = player.Character
     highlight.FillColor = (player.Team == LocalPlayer.Team) and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,0,0)
@@ -67,8 +88,27 @@ local function removeESP(player)
     end
 end
 
--- อัปเดต ESP ทุกเฟรม
-RunService.RenderStepped:Connect(function()
+-- ฟังก์ชันหาเป้าหมายใกล้ศูนย์กลางหน้าจอ
+local function updateTarget()
+    local closestDistance = math.huge
+    local target = nil
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    target = player
+                end
+            end
+        end
+    end
+    currentTarget = target
+end
+
+-- Update ESP และ Lock Target ทุกเฟรม
+RunService.RenderStepped:Connect(function(delta)
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             if espEnabled then
@@ -79,40 +119,29 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- Lock Target
+    -- Update target
     if lockTargetEnabled then
-        local closestDistance = math.huge
-        local target = nil
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-                if onScreen then
-                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        target = player
-                    end
-                end
-            end
-        end
-        currentTarget = target
-        -- หมุนกล้องไปที่เป้าศัตรู
+        updateTarget()
         if currentTarget and currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, currentTarget.Character.HumanoidRootPart.Position)
+            local targetPos = currentTarget.Character.HumanoidRootPart.Position
+            local camPos = Camera.CFrame.Position
+            local lookDir = (targetPos - camPos)
+            local lerpAmount = math.clamp(lockStrength/400, 0, 1) * delta
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(camPos, camPos + lookDir), lerpAmount)
         end
     end
 end)
 
--- ทำให้ GUI สามารถเปิด/ปิดด้วยปุ่ม P
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.P then
-        Frame.Visible = not Frame.Visible
-    end
-end)
-
--- เช็คผู้เล่นใหม่เข้ามา
+-- PlayerAdded Event
 Players.PlayerAdded:Connect(function(player)
     if espEnabled then
         createESP(player)
+    end
+end)
+
+-- Toggle GUI ด้วยปุ่ม P
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.P then
+        Frame.Visible = not Frame.Visible
     end
 end)
