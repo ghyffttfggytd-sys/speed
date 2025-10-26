@@ -1,135 +1,139 @@
 --// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 --// Settings
-local espEnabled = true
-local lockAllEnabled = true
-local refreshRate = 0.3 -- รีเฟรช ESP ทุก 0.3 วินาที
-local enemyColor = Color3.fromRGB(255,0,0)
-local friendColor = Color3.fromRGB(0,255,0)
+local ESPEnabled = true
+local LockTargetEnabled = false
+local ESPColor = Color3.fromRGB(255,0,0)
+local UpdateRate = 1 -- อัพเดททุก 1 วินาที
 
---// เก็บ Highlight
+--// GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 100)
+MainFrame.Position = UDim2.new(0, 50, 0, 50)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local ESPButton = Instance.new("TextButton")
+ESPButton.Size = UDim2.new(0, 180, 0, 30)
+ESPButton.Position = UDim2.new(0, 10, 0, 10)
+ESPButton.Text = "ESP: ON"
+ESPButton.Parent = MainFrame
+
+local LockButton = Instance.new("TextButton")
+LockButton.Size = UDim2.new(0, 180, 0, 30)
+LockButton.Position = UDim2.new(0, 10, 0, 50)
+LockButton.Text = "Lock Target: OFF"
+LockButton.Parent = MainFrame
+
+--// Toggle Functions
+ESPButton.MouseButton1Click:Connect(function()
+    ESPEnabled = not ESPEnabled
+    ESPButton.Text = "ESP: " .. (ESPEnabled and "ON" or "OFF")
+end)
+
+LockButton.MouseButton1Click:Connect(function()
+    LockTargetEnabled = not LockTargetEnabled
+    LockButton.Text = "Lock Target: " .. (LockTargetEnabled and "ON" or "OFF")
+end)
+
+--// Highlight Management
 local highlights = {}
-local lockedTargets = {}
 
---// ฟังก์ชันสร้าง ESP
 local function createESP(player)
-    if highlights[player] then return highlights[player] end
+    if highlights[player] then return end
     if not player.Character then return end
-
     local highlight = Instance.new("Highlight")
+    highlight.Name = "ESPHighlight"
     highlight.Adornee = player.Character
-    highlight.FillColor = (player.Team == LocalPlayer.Team and friendColor) or enemyColor
-    highlight.OutlineColor = Color3.fromRGB(255,255,255)
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- เห็นผ่านผนัง
-    highlight.Parent = game.CoreGui
+    highlight.FillColor = ESPColor
+    highlight.OutlineColor = ESPColor
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = Workspace
     highlights[player] = highlight
-    return highlight
 end
 
---// ฟังก์ชันลบ ESP ทั้งหมด
-local function clearESP()
-    for player, _ in pairs(highlights) do
+local function removeESP(player)
+    if highlights[player] then
         highlights[player]:Destroy()
         highlights[player] = nil
     end
 end
 
---// ฟังก์ชันอัปเดต ESP ทุก refreshRate
-spawn(function()
-    while true do
-        if espEnabled then
-            clearESP()
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    createESP(player)
+--// Lock Target Function
+local function getClosestTarget()
+    local closest = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local origin = Camera.CFrame.Position
+            local direction = player.Character.HumanoidRootPart.Position - origin
+            local ray = Ray.new(origin, direction)
+            local hitPart, _ = Workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+            
+            if hitPart and hitPart:IsDescendantOf(player.Character) then
+                local dist = (player.Character.HumanoidRootPart.Position - origin).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closest = player
                 end
             end
-        else
-            clearESP()
-        end
-        wait(refreshRate)
-    end
-end)
-
---// ระบบล็อคเป้าทุกคน
-RunService.RenderStepped:Connect(function()
-    if lockAllEnabled then
-        lockedTargets = {}
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                table.insert(lockedTargets, player)
-                -- ตัวอย่าง: แสดงชื่อเป้าล็อค
-                print("Locked Target:", player.Name)
-            end
         end
     end
+
+    return closest
+end
+
+--// ESP Update Function
+local function updateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if ESPEnabled and player.Character then
+            createESP(player)
+        elseif not ESPEnabled then
+            removeESP(player)
+        end
+    end
+end
+
+--// Initial ESP for existing players
+updateESP()
+
+--// Detect new players
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if ESPEnabled then
+            createESP(player)
+        end
+    end)
 end)
 
---// GUI มืออาชีพ
-local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
-local MenuFrame = Instance.new("Frame", ScreenGui)
-MenuFrame.Size = UDim2.new(0,180,0,160)
-MenuFrame.Position = UDim2.new(0,50,0,50)
-MenuFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-MenuFrame.BorderSizePixel = 0
-MenuFrame.Active = true
-MenuFrame.Draggable = true
-MenuFrame.Name = "ProMenu"
-
--- ขอบและโค้ง
-local UIStroke = Instance.new("UIStroke", MenuFrame)
-UIStroke.Color = Color3.fromRGB(0,255,128)
-UIStroke.Thickness = 2
-
-local UICorner = Instance.new("UICorner", MenuFrame)
-UICorner.CornerRadius = UDim.new(0,12)
-
--- ปุ่ม ESP
-local ESPButton = Instance.new("TextButton", MenuFrame)
-ESPButton.Size = UDim2.new(0,160,0,50)
-ESPButton.Position = UDim2.new(0,10,0,10)
-ESPButton.BackgroundColor3 = Color3.fromRGB(0,128,255)
-ESPButton.TextColor3 = Color3.fromRGB(255,255,255)
-ESPButton.Font = Enum.Font.GothamBold
-ESPButton.TextSize = 20
-ESPButton.Text = "ESP ✔️"
-local ESPCorner = Instance.new("UICorner", ESPButton)
-ESPCorner.CornerRadius = UDim.new(0,8)
-
-ESPButton.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    ESPButton.Text = espEnabled and "ESP ✔️" or "ESP ❌"
+--// Cleanup on leave
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
 end)
 
--- ปุ่ม Lock All
-local LockButton = Instance.new("TextButton", MenuFrame)
-LockButton.Size = UDim2.new(0,160,0,50)
-LockButton.Position = UDim2.new(0,10,0,80)
-LockButton.BackgroundColor3 = Color3.fromRGB(255,64,64)
-LockButton.TextColor3 = Color3.fromRGB(255,255,255)
-LockButton.Font = Enum.Font.GothamBold
-LockButton.TextSize = 20
-LockButton.Text = "Lock All ✔️"
-local LockCorner = Instance.new("UICorner", LockButton)
-LockCorner.CornerRadius = UDim.new(0,8)
+--// Main Loop for ESP & Lock Target
+while true do
+    updateESP()
 
-LockButton.MouseButton1Click:Connect(function()
-    lockAllEnabled = not lockAllEnabled
-    LockButton.Text = lockAllEnabled and "Lock All ✔️" or "Lock All ❌"
-end)
+    if LockTargetEnabled then
+        local target = getClosestTarget()
+        if target then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
+    end
 
--- ปุ่ม Refresh Rate Info (ตัวอย่าง)
-local InfoLabel = Instance.new("TextLabel", MenuFrame)
-InfoLabel.Size = UDim2.new(0,160,0,20)
-InfoLabel.Position = UDim2.new(0,10,0,140)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.TextColor3 = Color3.fromRGB(200,200,200)
-InfoLabel.TextSize = 14
-InfoLabel.Font = Enum.Font.Gotham
-InfoLabel.Text = "ESP Refresh: 0.3s"
+    wait(UpdateRate)
+end
