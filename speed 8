@@ -10,7 +10,6 @@ local Camera = Workspace.CurrentCamera
 --// Settings
 local espEnabled = true
 local lockTargetEnabled = true
-local fovRadius = 150 -- ปรับขนาดวงกลม FOV
 local enemyColor = Color3.fromRGB(255,0,0)
 local friendColor = Color3.fromRGB(0,255,0)
 
@@ -39,10 +38,10 @@ local function removeESP(player)
     end
 end
 
---// ฟังก์ชันหาศัตรูใกล้เคียงในวง FOV
-local function getClosestTarget()
+--// ฟังก์ชันหาศัตรูใกล้กลางจอ
+local function getCenterTarget()
     local closest = nil
-    local shortestDistance = fovRadius
+    local shortestDistance = math.huge
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -57,17 +56,6 @@ local function getClosestTarget()
         end
     end
     return closest
-end
-
---// วาดวงกลม FOV
-local function drawFOV()
-    local fovCircle = Instance.new("Frame")
-    fovCircle.Size = UDim2.new(0,fovRadius*2,0,fovRadius*2)
-    fovCircle.Position = UDim2.new(0.5,-fovRadius,0.5,-fovRadius)
-    fovCircle.BackgroundTransparency = 0.8
-    fovCircle.BorderSizePixel = 2
-    fovCircle.BorderColor3 = Color3.fromRGB(0,255,0)
-    fovCircle.Parent = game.CoreGui
 end
 
 --// เรียลไทม์
@@ -85,33 +73,39 @@ RunService.RenderStepped:Connect(function()
     end
 
     if lockTargetEnabled then
-        currentTarget = getClosestTarget()
-        -- ตัวอย่าง: แสดง print ชื่อเป้าล็อค
+        currentTarget = getCenterTarget()
         if currentTarget then
+            -- ตัวอย่าง: แสดงชื่อเป้าล็อค
             print("Locked Target:", currentTarget.Name)
         end
     end
 end)
 
---// ปุ่ม UI บนมือถือ
+--// UI เมนูเลื่อนได้
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local MenuFrame = Instance.new("Frame", ScreenGui)
+MenuFrame.Size = UDim2.new(0,150,0,120)
+MenuFrame.Position = UDim2.new(0,50,0,50)
+MenuFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+MenuFrame.Active = true
+MenuFrame.Draggable = true -- สามารถลากได้
 
-local ESPButton = Instance.new("TextButton", ScreenGui)
-ESPButton.Size = UDim2.new(0,100,0,50)
+-- ปุ่ม ESP
+local ESPButton = Instance.new("TextButton", MenuFrame)
+ESPButton.Size = UDim2.new(0,130,0,40)
 ESPButton.Position = UDim2.new(0,10,0,10)
-ESPButton.Text = "ESP ❌"
+ESPButton.Text = "ESP ✔️"
 ESPButton.MouseButton1Click:Connect(function()
     espEnabled = not espEnabled
     ESPButton.Text = espEnabled and "ESP ✔️" or "ESP ❌"
 end)
 
-local LockButton = Instance.new("TextButton", ScreenGui)
-LockButton.Size = UDim2.new(0,100,0,50)
-LockButton.Position = UDim2.new(0,10,0,70)
-LockButton.Text = "Lock ❌"
+-- ปุ่ม Lock
+local LockButton = Instance.new("TextButton", MenuFrame)
+LockButton.Size = UDim2.new(0,130,0,40)
+LockButton.Position = UDim2.new(0,10,0,60)
+LockButton.Text = "Lock ✔️"
 LockButton.MouseButton1Click:Connect(function()
     lockTargetEnabled = not lockTargetEnabled
     LockButton.Text = lockTargetEnabled and "Lock ✔️" or "Lock ❌"
 end)
-
-drawFOV()
