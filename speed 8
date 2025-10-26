@@ -1,6 +1,4 @@
 -- LocalScript (วางใน StarterPlayerScripts หรือ PlayerGui)
--- AimLock + ESP + Draggable GUI + Net toggle
--- ปรับแต่งได้: lockStrength (1-400)
 
 -- Services
 local Players = game:GetService("Players")
@@ -11,44 +9,36 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- Settings (ค่าเริ่มต้น)
+-- Settings
 local espEnabled = true
 local lockEnabled = true
-local netEnabled = true -- "เปิด/ปิดเน็ต" ในความหมายของสคริปต์นี้คือ เปิด/ปิดการอัปเดต ESP+Lock (GUI ยังทำงาน)
+local netEnabled = true
 local lockStrength = 100 -- 1..400
-local highlightTable = {} -- [player] = highlight
+local highlightTable = {}
 local currentTarget = nil
 
--- Helper: ตรวจสอบว่าตัวละครพร้อมหรือไม่
+-- Helper: ตรวจสอบว่าตัวละครพร้อม
 local function characterIsValid(player)
-    if not player then return false end
     local char = player.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum or hum.Health <= 0 then return false end
-    return true
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    return hrp and hum and hum.Health > 0
 end
 
--- Create ScreenGui + Frame
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AimLockESPGui"
+-- GUI
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 screenGui.ResetOnSpawn = false
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Name = "MainFrame"
 frame.Size = UDim2.new(0, 260, 0, 260)
-frame.Position = UDim2.new(0.05, 0, 0.1, 0)
+frame.Position = UDim2.new(0.05,0,0.1,0)
 frame.BackgroundColor3 = Color3.fromRGB(28,28,30)
-frame.BorderSizePixel = 0
 frame.Parent = screenGui
-frame.Active = true -- สำหรับการลาก
--- We'll implement custom dragging for reliability on mobile/pc
+frame.Active = true
+frame.Draggable = true
 
 local uiPadding = 10
 
--- Title
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, -uiPadding*2, 0, 30)
 title.Position = UDim2.new(0, uiPadding, 0, uiPadding)
@@ -58,7 +48,6 @@ title.Font = Enum.Font.SourceSansBold
 title.TextSize = 18
 title.Text = "AimLock Notebook"
 
--- Small helper to create button
 local function makeButton(text, y)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -uiPadding*2, 0, 36)
@@ -72,15 +61,14 @@ local function makeButton(text, y)
     return btn
 end
 
--- Buttons
 local espBtn = makeButton("ESP: ON", 50)
-local lockBtn = makeButton("Lock: ON", 50 + 46)
-local netBtn = makeButton("Net: ON", 50 + 46*2)
+local lockBtn = makeButton("Lock: ON", 96)
+local netBtn = makeButton("Net: ON", 142)
 
--- Slider area for lockStrength
+-- Slider
 local sliderLabel = Instance.new("TextLabel", frame)
 sliderLabel.Size = UDim2.new(1, -uiPadding*2, 0, 24)
-sliderLabel.Position = UDim2.new(0, uiPadding, 0, 50 + 46*3)
+sliderLabel.Position = UDim2.new(0, uiPadding, 0, 188)
 sliderLabel.BackgroundTransparency = 1
 sliderLabel.TextColor3 = Color3.new(1,1,1)
 sliderLabel.Font = Enum.Font.SourceSans
@@ -89,24 +77,22 @@ sliderLabel.Text = "Lock Strength: "..lockStrength
 
 local sliderBar = Instance.new("Frame", frame)
 sliderBar.Size = UDim2.new(1, -uiPadding*2, 0, 18)
-sliderBar.Position = UDim2.new(0, uiPadding, 0, 50 + 46*3 + 28)
+sliderBar.Position = UDim2.new(0, uiPadding, 0, 212)
 sliderBar.BackgroundColor3 = Color3.fromRGB(60,60,64)
 sliderBar.BorderSizePixel = 0
 
 local sliderFill = Instance.new("Frame", sliderBar)
-sliderFill.AnchorPoint = Vector2.new(0,0)
-sliderFill.Size = UDim2.new(math.clamp(lockStrength/400, 0, 1), 0, 1, 0)
+sliderFill.Size = UDim2.new(lockStrength/400, 0, 1, 0)
 sliderFill.BackgroundColor3 = Color3.fromRGB(120,180,255)
 sliderFill.BorderSizePixel = 0
 
 local sliderKnob = Instance.new("ImageButton", sliderBar)
 sliderKnob.Size = UDim2.new(0, 18, 1, 0)
 sliderKnob.BackgroundTransparency = 1
-sliderKnob.Image = "rbxassetid://3570695787" -- circle
-sliderKnob.Position = UDim2.new(math.clamp(lockStrength/400,0,1), -9, 0, 0)
-sliderKnob.Modal = false
+sliderKnob.Image = "rbxassetid://3570695787"
+sliderKnob.Position = UDim2.new(lockStrength/400, -9, 0, 0)
 
--- Close/Toggle GUI small button
+-- Toggle GUI
 local toggleGuiBtn = Instance.new("TextButton", frame)
 toggleGuiBtn.Size = UDim2.new(0, 28, 0, 20)
 toggleGuiBtn.Position = UDim2.new(1, -uiPadding - 28, 0, uiPadding)
@@ -116,19 +102,17 @@ toggleGuiBtn.Text = "✕"
 toggleGuiBtn.Font = Enum.Font.SourceSans
 toggleGuiBtn.TextSize = 14
 
--- Make buttons use Activated (works for touch & mouse)
+-- Button callbacks
 local function activateButton(btn, callback)
     btn.Activated:Connect(callback)
 end
 
--- Button callbacks
 activateButton(espBtn, function()
     espEnabled = not espEnabled
     espBtn.Text = "ESP: "..(espEnabled and "ON" or "OFF")
     if not espEnabled then
-        -- remove current highlights
         for p,h in pairs(highlightTable) do
-            if h and h.Parent then h:Destroy() end
+            if h then h:Destroy() end
         end
         highlightTable = {}
     end
@@ -148,39 +132,36 @@ activateButton(toggleGuiBtn, function()
     frame.Visible = not frame.Visible
 end)
 
--- Slider dragging logic (works for touch & mouse)
+-- Slider drag logic
 local dragging = false
-local function updateSliderFromX(x)
+local function updateSlider(x)
     local absPos = sliderBar.AbsolutePosition
     local width = sliderBar.AbsoluteSize.X
-    local rel = (x - absPos.X) / width
-    rel = math.clamp(rel, 0, 1)
-    lockStrength = math.floor(rel * 399) + 1 -- 1..400
-    sliderFill.Size = UDim2.new(rel, 0, 1, 0)
-    sliderKnob.Position = UDim2.new(rel, -9, 0, 0)
+    local rel = (x - absPos.X)/width
+    rel = math.clamp(rel,0,1)
+    lockStrength = math.floor(rel*399)+1
+    sliderFill.Size = UDim2.new(rel,0,1,0)
+    sliderKnob.Position = UDim2.new(rel,-9,0,0)
     sliderLabel.Text = "Lock Strength: "..lockStrength
 end
 
 sliderKnob.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
     end
 end)
 sliderKnob.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
+    dragging = false
 end)
--- also allow clicking on bar to set
 sliderBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        updateSliderFromX(input.Position.X)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        updateSlider(input.Position.X)
         dragging = true
     end
 end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        updateSliderFromX(input.Position.X)
+        updateSlider(input.Position.X)
     end
 end)
 UserInputService.InputEnded:Connect(function(input)
@@ -189,98 +170,46 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Draggable frame (custom, more reliable than Frame.Draggable)
-local draggingFrame = false
-local dragStart = nil
-local startPos = nil
-local function onFrameInputBegan(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingFrame = true
-        dragStart = input.Position
-        startPos = frame.Position
-    end
-end
-local function onFrameInputChanged(input)
-    if draggingFrame and dragStart and startPos and input then
-        local delta = input.Position - dragStart
-        local newX = startPos.X.Offset + delta.X
-        local newY = startPos.Y.Offset + delta.Y
-        -- clamp to screen bounds (simple)
-        local screenW = screenGui.Parent and workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or 1024
-        local screenH = screenGui.Parent and workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or 768
-        newX = math.clamp(newX, 0, math.max(0, screenW - frame.AbsoluteSize.X))
-        newY = math.clamp(newY, 0, math.max(0, screenH - frame.AbsoluteSize.Y))
-        frame.Position = UDim2.new(0, newX, 0, newY)
-    end
-end
-local function onFrameInputEnded(input)
-    draggingFrame = false
-end
-
-frame.InputBegan:Connect(onFrameInputBegan)
-frame.InputChanged:Connect(onFrameInputChanged)
-frame.InputEnded:Connect(onFrameInputEnded)
--- Also track global InputChanged to support touch move
-UserInputService.InputChanged:Connect(function(input)
-    if draggingFrame then
-        onFrameInputChanged(input)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch then
-        onFrameInputEnded(input)
-    end
-end)
-
--- ESP creation / removal
-local function createHighlightForPlayer(player)
+-- ESP functions
+local function createHighlight(player)
     if highlightTable[player] then return end
     if not characterIsValid(player) then return end
-    -- Create Highlight instance and parent to Workspace
     local highlight = Instance.new("Highlight")
     highlight.Adornee = player.Character
     highlight.FillTransparency = 0.6
     highlight.OutlineTransparency = 0
-    if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-        highlight.FillColor = Color3.fromRGB(0,200,0) -- friend = green
-    else
-        highlight.FillColor = Color3.fromRGB(255,50,50) -- enemy = red
-    end
+    highlight.FillColor = Color3.fromRGB(255,0,0) -- Enemy = red
     highlight.Parent = Workspace
     highlightTable[player] = highlight
 end
 
-local function removeHighlightForPlayer(player)
+local function removeHighlight(player)
     local h = highlightTable[player]
     if h then
-        pcall(function() h:Destroy() end)
+        h:Destroy()
         highlightTable[player] = nil
     end
 end
 
--- Clean up when player leaves or dies
 Players.PlayerRemoving:Connect(function(player)
-    removeHighlightForPlayer(player)
+    removeHighlight(player)
 end)
 
--- Find best target (closest to screen center and on-screen)
+-- Lock target: closest to screen center
 local function findBestTarget()
     local best = nil
     local bestDist = math.huge
     local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and characterIsValid(p) then
-            -- team check: only enemies
-            if p.Team ~= LocalPlayer.Team then
-                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local screenPos, onscreen = Camera:WorldToViewportPoint(hrp.Position)
-                    if onscreen then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                        if dist < bestDist then
-                            bestDist = dist
-                            best = p
-                        end
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y)-center).Magnitude
+                    if dist < bestDist then
+                        bestDist = dist
+                        best = p
                     end
                 end
             end
@@ -289,68 +218,10 @@ local function findBestTarget()
     return best
 end
 
--- Main update loop
+-- Main loop
 RunService.RenderStepped:Connect(function(delta)
-    if not netEnabled then
-        -- Net disabled => do not update ESP/Lock (but keep GUI responsive)
-        return
-    end
+    if not netEnabled then return end
 
-    -- ESP management
+    -- ESP
     if espEnabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and characterIsValid(p) then
-                createHighlightForPlayer(p)
-            else
-                removeHighlightForPlayer(p)
-            end
-        end
-    else
-        -- remove all highlights
-        for p,_ in pairs(highlightTable) do
-            removeHighlightForPlayer(p)
-        end
-    end
-
-    -- Lock target
-    if lockEnabled then
-        currentTarget = findBestTarget()
-        if currentTarget and characterIsValid(currentTarget) then
-            local hrp = currentTarget.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                -- Smoothly lerp camera to look at target
-                local camPos = Camera.CFrame.Position
-                local targetPos = hrp.Position
-                local lookAt = CFrame.new(camPos, targetPos)
-                -- Compute lerp factor from lockStrength (1..400)
-                local alpha = math.clamp(lockStrength / 400, 0, 1)
-                -- Multiply by a factor to make it feel responsive; scale by delta
-                local lerpAmount = math.clamp(alpha * 6 * delta, 0, 1) -- tweak this multiplier if you want faster/slower feel
-                Camera.CFrame = Camera.CFrame:Lerp(lookAt, lerpAmount)
-            end
-        end
-    end
-end)
-
--- Safety: on spawn / character added, reapply highlights if needed
-LocalPlayer.CharacterAdded:Connect(function()
-    -- slight delay to let character load
-    wait(0.5)
-    if espEnabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and characterIsValid(p) then
-                createHighlightForPlayer(p)
-            end
-        end
-    end
-end)
-
--- Initialize existing players
-for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer and p.Character and espEnabled then
-        createHighlightForPlayer(p)
-    end
-end
-
--- Instructions print (developer)
-print("[AimLockNotebook] loaded. GUI toggle & buttons ready.")
+        for _, p in pairs(
